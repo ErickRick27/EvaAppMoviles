@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "1087905135138",
-    "project_id": "evaluacion3-appmoviles-9c232",
-    "storage_bucket": "evaluacion3-appmoviles-9c232.firebasestorage.app"
+    "project_number": "474193266928",
+    "project_id": "evaluacion3-appmoviles-3e8c0",
+    "storage_bucket": "evaluacion3-appmoviles-3e8c0.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1087905135138:android:eacb59261c8fa48f67e87b",
+        "mobilesdk_app_id": "1:474193266928:android:25943176a9cb4166fdda35",
         "android_client_info": {
-          "package_name": "com.example.evaluacion"
+          "package_name": "com.evaluacion3.appmoviles"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAYpQBpXkLKD2Ob1so0M0EnHv26-r0ohnA"
+          "current_key": "AIzaSyCGQeb4tjw9iahmbZ7pMEbKQAXj16T2Ye0"
         }
       ],
       "services": {

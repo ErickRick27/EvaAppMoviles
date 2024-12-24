@@ -1,38 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'add_episodio_screen.dart'; // Import the screen for adding episodes
+import 'package:evaluacion3_4/models/episodio.dart';
 
 class MisEpisodiosScreen extends StatelessWidget {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
   final User? _currentUser = FirebaseAuth.instance.currentUser;
 
-  // Función para obtener los episodios del usuario actual
-  Future<List<Map<String, dynamic>>> getMisEpisodios() async {
+  // Retrieve only the episodes created by the authenticated user
+  Stream<List<Episodio>> _getMisEpisodios() {
     if (_currentUser == null) {
-      return [];
+      return Stream.value([]);
     }
 
-    QuerySnapshot snapshot = await _db
+    return FirebaseFirestore.instance
         .collection('episodios')
-        .where('userId', isEqualTo: _currentUser!.uid)
-        .get();
-
-    return snapshot.docs.map((doc) {
-      return {
-        'id': doc.id,
-        ...doc.data() as Map<String, dynamic>,
-      };
-    }).toList();
-  }
-
-  // Función para eliminar un episodio
-  Future<void> deleteEpisodio(String episodioId) async {
-    try {
-      await _db.collection('episodios').doc(episodioId).delete();
-      print('Episodio eliminado correctamente');
-    } catch (e) {
-      print('Error al eliminar episodio: $e');
-    }
+        .where('userId', isEqualTo: _currentUser?.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Episodio.fromDocument(doc))
+            .toList());
   }
 
   @override
@@ -40,76 +27,47 @@ class MisEpisodiosScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text('Mis Episodios'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: () {
-              Navigator.pushNamed(context, '/add_episodio');
-            },
-          ),
-        ],
       ),
-      body: FutureBuilder(
-        future: getMisEpisodios(),
+      body: StreamBuilder<List<Episodio>>(
+        stream: _getMisEpisodios(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error al cargar episodios'));
+            return Center(child: Text('Error al cargar los episodios'));
           }
 
-          final episodios = snapshot.data as List<Map<String, dynamic>>;
+          final episodios = snapshot.data ?? [];
 
-          // Si no tiene episodios, mostramos un mensaje amigable
           if (episodios.isEmpty) {
-            return Center(child: Text('No tienes episodios aún.'));
+            return Center(child: Text('No tienes episodios disponibles.'));
           }
 
           return ListView.builder(
             itemCount: episodios.length,
             itemBuilder: (context, index) {
               final episodio = episodios[index];
-              return Card(
-                margin: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-                child: ListTile(
-                  contentPadding: EdgeInsets.all(10),
-                  title: Text(
-                    episodio['titulo'],
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(episodio['descripcion']),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    onPressed: () async {
-                      // Pedimos confirmación antes de eliminar
-                      bool? confirmDelete = await showDialog(
-                        context: context,
-                        builder: (context) {
-                          return AlertDialog(
-                            title: Text('Confirmar eliminación'),
-                            content: Text('¿Estás seguro de que quieres eliminar este episodio?'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(false),
-                                child: Text('Cancelar'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.of(context).pop(true),
-                                child: Text('Eliminar'),
-                              ),
-                            ],
-                          );
-                        },
-                      );
 
-                      if (confirmDelete != null && confirmDelete) {
-                        await deleteEpisodio(episodio['id']);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Episodio eliminado')),
-                        );
-                      }
-                    },
+              return Card(
+                margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                child: ListTile(
+                  title: Text(episodio.titulo),
+                  subtitle: Text(episodio.descripcion),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit, color: Colors.green),
+                        onPressed: () {
+                          _editEpisodio(context, episodio);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteEpisodio(context, episodio),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -117,6 +75,44 @@ class MisEpisodiosScreen extends StatelessWidget {
           );
         },
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.pushNamed(
+            context,
+            '/add_episodio',
+            arguments: Episodio(id: '', titulo: '', descripcion: '', duracion: 0, usuarioInicial: ''), // Pass an empty episode for adding new
+          );
+        },
+        child: Icon(Icons.add),
+        tooltip: 'Agregar Episodio',
+      ),
+    );
+  }
+
+  // Function to delete an episode
+  Future<void> _deleteEpisodio(BuildContext context, Episodio episodio) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('episodios')
+          .doc(episodio.id)
+          .delete();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Episodio eliminado correctamente')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al eliminar el episodio: $e')),
+      );
+    }
+  }
+
+  // Function to edit an episode
+  void _editEpisodio(BuildContext context, Episodio episodio) {
+    Navigator.pushNamed(
+      context,
+      '/add_episodio',
+      arguments: episodio, // Pass the selected episode for editing
     );
   }
 }
